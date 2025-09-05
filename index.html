@@ -175,19 +175,50 @@
 
         async function generateFingerprint(seed = 3, shapes = 7) {
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = `Generating fingerprint for seed=${seed}, shapes=${shapes}...`;
+            resultsDiv.innerHTML = `Generating fingerprint for seed=${seed}, shapes=${shapes}...<br>`;
             
             try {
+                // Create the 3 canvases like DataDome Worker does
+                const textCanvas = document.createElement('canvas');
                 const dynamicCanvas = document.getElementById('dynamicCanvas');
-                const dynamicCtx = dynamicCanvas.getContext('2d');
+                const geometricCanvas = document.createElement('canvas');
                 
-                // Render dynamic canvas with PRNG
-                renderDynamicCanvas(dynamicCanvas, dynamicCtx, seed, shapes);
+                // Text canvas (380x55) - like Worker first canvas
+                textCanvas.width = 380;
+                textCanvas.height = 55;
+                const textCtx = textCanvas.getContext('2d');
+                textCtx.textBaseline = "alphabetic";
+                textCtx.fillStyle = "#F0A";
+                textCtx.fillRect(49, 1, 73, 25);
+                const text = "Quartz glyph job vexd cwm finks" + String.fromCharCode(55357, 56898);
+                textCtx.fillStyle = "#3A1";
+                textCtx.font = '13pt "Times New Roman"';
+                textCtx.fillText(text, 5, 17);
+                textCtx.fillStyle = "rgba(49, 40, 223, 0.33)";
+                textCtx.font = "17pt Arial";
+                textCtx.fillText(text, 7, 25);
                 
-                // Get image data for hashing (like DataDome Worker)
-                const imageData = dynamicCtx.getImageData(0, 0, dynamicCanvas.width, dynamicCanvas.height);
-                const hash = await hashData(imageData.data);
-                const hexHash = toHex(hash);
+                // Dynamic canvas (seed-driven) - this replaces the static geometric canvas
+                renderDynamicCanvas(dynamicCanvas, dynamicCanvas.getContext('2d'), seed, shapes);
+                
+                // Get image data from both canvases
+                const textImageData1 = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
+                const textImageData2 = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height); // Same data
+                const dynamicImageData = dynamicCanvas.getContext('2d').getImageData(0, 0, dynamicCanvas.width, dynamicCanvas.height);
+                
+                // Hash all three like DataDome Worker
+                const [textHash1, textHash2, dynamicHash] = await Promise.all([
+                    hashData(textImageData1.data),
+                    hashData(textImageData2.data),
+                    hashData(dynamicImageData.data)
+                ]);
+                
+                // Check stability (DataDome logic)
+                const ch = toHex(textHash1) !== toHex(textHash2) ? "UNST" : "stable";
+                
+                // XOR first text hash with dynamic hash (DataDome logic)
+                const pcsoBytes = textHash1.map((byte, index) => byte ^ dynamicHash[index]);
+                const pcso = toHex(pcsoBytes);
                 
                 // Check against known hashes
                 const knownHashes = [
@@ -198,36 +229,47 @@
                     "4672bc1c135b989dd64f9fb7ed68e729", "a52d3ff1605eff146016a8a00dd1d5f1"
                 ];
                 
-                const isMatch = knownHashes.includes(hexHash);
+                const isMatch = knownHashes.includes(pcso);
                 
-                resultsDiv.innerHTML = `
+                resultsDiv.innerHTML += `
                     <strong>Seed:</strong> ${seed}<br>
                     <strong>Shapes:</strong> ${shapes}<br>
-                    <strong>Generated Hash:</strong> ${hexHash}<br>
-                    <strong>Match with known:</strong> ${isMatch ? '🎯 YES!' : 'No'}<br>
-                    <strong>Status:</strong> UNST (always unstable in this implementation)
+                    <strong>ch:</strong> ${ch}<br>
+                    <strong>pcso:</strong> ${pcso} ${isMatch ? '🎯 MATCH!' : ''}<br>
+                    <strong>Text Hash 1:</strong> ${toHex(textHash1).substring(0, 32)}...<br>
+                    <strong>Dynamic Hash:</strong> ${toHex(dynamicHash).substring(0, 32)}...<br><br>
                 `;
                 
-                console.log(`Seed ${seed}, Shapes ${shapes}: ${hexHash} ${isMatch ? '🎯' : ''}`);
+                if (isMatch) {
+                    console.log(`🎯 COLLISION! Seed ${seed}, Shapes ${shapes}: pcso=${pcso}`);
+                }
+                
+                return isMatch;
                 
             } catch (error) {
-                resultsDiv.innerHTML = 'Error: ' + error.message;
+                resultsDiv.innerHTML += 'Error: ' + error.message + '<br>';
                 console.error('Fingerprint generation error:', error);
+                return false;
             }
         }
 
         async function testAllKnownSeeds() {
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = 'Testing all seeds 1-9...<br><br>';
+            resultsDiv.innerHTML = 'Testing all seeds 1-9 with shapes=7...<br><br>';
             
             let matches = 0;
             
             for (let seed = 1; seed <= 9; seed++) {
-                await generateFingerprint(seed, 7);
-                await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+                const isMatch = await generateFingerprint(seed, 7);
+                if (isMatch) matches++;
+                await new Promise(resolve => setTimeout(resolve, 200)); // Delay for visibility
             }
             
-            resultsDiv.innerHTML += `<br><strong>Completed testing seeds 1-9</strong>`;
+            resultsDiv.innerHTML += `<br><strong>Completed testing seeds 1-9. Found ${matches} matches!</strong>`;
+            
+            if (matches === 0) {
+                resultsDiv.innerHTML += `<br><em>No matches found. The PRNG parameters (g=${PRNG_PARAMS.g}, r=${PRNG_PARAMS.r}) might be incorrect.</em>`;
+            }
         }
 
         // Auto-generate on page load
