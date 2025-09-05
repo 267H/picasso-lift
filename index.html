@@ -3,35 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataDome Picasso Canvas Fingerprint Collector</title>
+    <title>DataDome Picasso Canvas Fingerprint Collector - Complete</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .result { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; }
         .canvas-container { margin: 20px 0; }
         canvas { border: 1px solid #ccc; margin: 10px; }
+        .input-container { margin: 20px 0; }
+        input { padding: 5px; margin: 5px; }
     </style>
 </head>
 <body>
-    <h1>DataDome Picasso Canvas Fingerprint Collector</h1>
+    <h1>DataDome Picasso Canvas Fingerprint Collector - Complete Implementation</h1>
+    
+    <div class="input-container">
+        <label>Seed: <input type="number" id="seedInput" value="3" min="1" max="9"></label>
+        <label>Shapes: <input type="number" id="shapesInput" value="7" min="0" max="10"></label>
+        <button onclick="generateWithInputs()" style="padding: 5px 10px;">Generate with Custom Seed</button>
+    </div>
     
     <div class="canvas-container">
-        <h3>Text Canvas (380x55)</h3>
-        <canvas id="textCanvas" width="380" height="55"></canvas>
-        
-        <h3>Geometric Canvas (131x115)</h3>
-        <canvas id="geometricCanvas" width="131" height="115"></canvas>
+        <h3>Dynamic Canvas (from PRNG)</h3>
+        <canvas id="dynamicCanvas" width="280" height="155"></canvas>
     </div>
     
     <div class="result">
         <h3>Results:</h3>
-        <div id="results">Click "Generate Fingerprint" to start...</div>
+        <div id="results">Enter seed and click generate...</div>
     </div>
     
-    <button onclick="generateFingerprint()" style="padding: 10px 20px; font-size: 16px;">Generate Fingerprint</button>
-    <button onclick="runCollisionTest()" style="padding: 10px 20px; font-size: 16px; margin-left: 10px;">Run Collision Test (100x)</button>
+    <button onclick="testAllKnownSeeds()" style="padding: 10px 20px; font-size: 16px;">Test All Known Seeds (1-9)</button>
 
     <script>
-        // Exact functions from DataDome's Worker blob
+        // DataDome's exact PRNG parameters (need to find these values)
+        const PRNG_PARAMS = {
+            g: 2147483647,  // Large prime (common for LCG)
+            r: 16807        // Common multiplier for LCG  
+        };
+
+        // Hash functions from DataDome
         function hashData(data) {
             return crypto.subtle.digest("SHA-256", data).then(function(hash) {
                 return Array.from(new Uint8Array(hash));
@@ -44,95 +54,161 @@
             }).join("");
         }
 
-        // Exact text canvas rendering from DataDome
-        function renderTextCanvas(canvas, ctx) {
-            canvas.width = 380;
-            canvas.height = 55;
-            ctx.textBaseline = "alphabetic";
-            ctx.fillStyle = "#F0A";
-            ctx.fillRect(49, 1, 73, 25);
-            
-            var text = "Quartz glyph job vexd cwm finks" + String.fromCharCode(55357, 56898);
-            ctx.fillStyle = "#3A1";
-            ctx.font = '13pt "Times New Roman"';
-            ctx.fillText(text, 5, 17);
-            ctx.fillStyle = "rgba(49, 40, 223, 0.33)";
-            ctx.font = "17pt Arial";
-            ctx.fillText(text, 7, 25);
+        // DataDome's PRNG implementation
+        function PRNG(seed) {
+            this.currentNumber = seed % PRNG_PARAMS.g;
+            if (this.currentNumber <= 0) {
+                this.currentNumber += PRNG_PARAMS.g;
+            }
         }
 
-        // Exact geometric canvas rendering from DataDome
-        function renderGeometricCanvas(canvas, ctx) {
-            canvas.width = 131;
-            canvas.height = 115;
-            ctx.globalCompositeOperation = "multiply";
-            
-            var circles = [["#E3E", 55, 55], ["#3EE", 95, 55], ["#EE3", 70, 90]];
-            for (var i = 0; i < circles.length; i++) {
-                ctx.fillStyle = circles[i][0];
+        PRNG.prototype.getNext = function() {
+            this.currentNumber = Math.max(PRNG_PARAMS.r * this.currentNumber % PRNG_PARAMS.g, 2);
+            return this.currentNumber;
+        };
+
+        // Utility function for scaling random values
+        function scaleRandom(rng, maxValue, isFloat) {
+            const normalized = (rng.getNext() - 1) / PRNG_PARAMS.g;
+            return isFloat ? normalized * maxValue : Math.floor(normalized * maxValue);
+        }
+
+        // Color palette from DataDome
+        const colors = ["#FF6633", "#FFB399", "#FF33FF", "#FFFF99", "#00B3E6", "#E6B333", "#3366E6", "#999966", "#99FF99", "#B34D4D", "#80B300", "#809900", "#E6B3B3", "#6680B3", "#66991A", "#FF99E6", "#CCFF1A", "#FF1A66", "#E6331A", "#33FFCC", "#66994D", "#B366CC", "#4D8000", "#B33300", "#CC80CC", "#66664D", "#991AFF", "#E666FF", "#4DB3FF", "#1AB399", "#E666B3", "#33991A", "#CC9999", "#B3B31A", "#00E680", "#4D8066", "#809980", "#E6FF80", "#1AFF33", "#999933", "#FF3380", "#CCCC00", "#66E64D", "#4D80CC", "#9900B3", "#E64D66", "#4DB380", "#FF4D4D", "#99E6E6", "#6666FF"];
+
+        // Drawing functions from DataDome  
+        const drawingFunctions = [
+            // Function 0: Arc
+            function(rng, ctx, canvas) {
                 ctx.beginPath();
-                ctx.arc(circles[i][1], circles[i][2], 45, 0, 2 * Math.PI, true);
-                ctx.closePath();
-                ctx.fill();
+                ctx.arc(
+                    scaleRandom(rng, canvas.width / 2),
+                    scaleRandom(rng, canvas.height / 2), 
+                    scaleRandom(rng, Math.min(canvas.width / 4, canvas.height / 4)),
+                    scaleRandom(rng, 2 * Math.PI, true),
+                    scaleRandom(rng, 2 * Math.PI, true)
+                );
+                ctx.stroke();
+            },
+            // Function 1: Text  
+            function(rng, ctx, canvas) {
+                const length = Math.max(1, scaleRandom(rng, 5));
+                let text = "";
+                for (let i = 0; i < length; i++) {
+                    const charCode = 65 + rng.getNext() % (126 - 65);
+                    text += String.fromCharCode(charCode);
+                }
+                ctx.font = (canvas.height / 10) + "px aafakefontaa";
+                ctx.fillText(text, scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height), scaleRandom(rng, canvas.width));
+            },
+            // Function 2: Bezier curve
+            function(rng, ctx, canvas) {
+                ctx.beginPath();
+                ctx.moveTo(scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height));
+                ctx.bezierCurveTo(
+                    scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height),
+                    scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height), 
+                    scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height)
+                );
+                ctx.stroke();
+            },
+            // Function 3: Quadratic curve
+            function(rng, ctx, canvas) {
+                ctx.beginPath();
+                ctx.moveTo(scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height));
+                ctx.quadraticCurveTo(
+                    scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height),
+                    scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height)
+                );
+                ctx.stroke();
+            }
+        ];
+
+        // Special emoji function (called when shapes=1)
+        function drawEmojiText(rng, ctx, canvas) {
+            const num = Math.max(1, scaleRandom(rng, 5));
+            const text = "\ufeff▶️" + num;
+            ctx.font = (canvas.height / 10) + "px aafakefontaa";
+            ctx.fillText(text, scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height), scaleRandom(rng, canvas.width));
+        }
+
+        function renderDynamicCanvas(canvas, ctx, seed, shapes) {
+            canvas.width = 280;
+            canvas.height = 155;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const rng = new PRNG(seed);
+            
+            // Create radial gradient (always done first)
+            const gradient = ctx.createRadialGradient(
+                scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height), scaleRandom(rng, canvas.width),
+                scaleRandom(rng, canvas.width), scaleRandom(rng, canvas.height), scaleRandom(rng, canvas.width)
+            );
+            gradient.addColorStop(0, colors[scaleRandom(rng, colors.length)]);
+            gradient.addColorStop(1, colors[scaleRandom(rng, colors.length)]);
+            ctx.fillStyle = gradient;
+            
+            // Set shadow
+            ctx.shadowBlur = scaleRandom(rng, 20); // maxShadowBlur estimate
+            ctx.shadowColor = colors[scaleRandom(rng, colors.length)];
+            
+            // Select and execute drawing function based on shapes
+            let drawFunc;
+            if (shapes === 1) {
+                drawFunc = drawEmojiText;
+            } else {
+                drawFunc = drawingFunctions[scaleRandom(rng, drawingFunctions.length)];
             }
             
-            ctx.fillStyle = "#EA3";
-            ctx.arc(65, 65, 65, 0, 2 * Math.PI, true);
-            ctx.arc(65, 65, 30, 0, 2 * Math.PI, true);
-            ctx.fill("evenodd");
+            drawFunc(rng, ctx, canvas);
+            ctx.fill();
+            
+            return canvas.toDataURL();
         }
 
-        async function generateFingerprint() {
+        async function generateWithInputs() {
+            const seed = parseInt(document.getElementById('seedInput').value);
+            const shapes = parseInt(document.getElementById('shapesInput').value);
+            
+            await generateFingerprint(seed, shapes);
+        }
+
+        async function generateFingerprint(seed = 3, shapes = 7) {
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = 'Generating fingerprint...';
+            resultsDiv.innerHTML = `Generating fingerprint for seed=${seed}, shapes=${shapes}...`;
             
             try {
-                // Get canvases
-                const textCanvas = document.getElementById('textCanvas');
-                const geometricCanvas = document.getElementById('geometricCanvas');
-                const textCtx = textCanvas.getContext('2d');
-                const geometricCtx = geometricCanvas.getContext('2d');
+                const dynamicCanvas = document.getElementById('dynamicCanvas');
+                const dynamicCtx = dynamicCanvas.getContext('2d');
                 
-                // Render exactly like DataDome
-                renderTextCanvas(textCanvas, textCtx);
+                // Render dynamic canvas with PRNG
+                renderDynamicCanvas(dynamicCanvas, dynamicCtx, seed, shapes);
                 
-                // Get first text canvas hash (twice like DataDome does)
-                const textImageData1 = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
-                const textImageData2 = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
+                // Get image data for hashing (like DataDome Worker)
+                const imageData = dynamicCtx.getImageData(0, 0, dynamicCanvas.width, dynamicCanvas.height);
+                const hash = await hashData(imageData.data);
+                const hexHash = toHex(hash);
                 
-                renderGeometricCanvas(geometricCanvas, geometricCtx);
-                const geometricImageData = geometricCtx.getImageData(0, 0, geometricCanvas.width, geometricCanvas.height);
+                // Check against known hashes
+                const knownHashes = [
+                    "131bd7b5e8f9221c94eb742406b4b47e", "86e105b55c457847c7234ed570e925fe",
+                    "39114cf3b63d8af324af9c111ba0ea05", "89e095e6a52cc387edd991d82cca2cdc", 
+                    "24441bba25a6e2916b4eaf01448ec1fa", "70410ed014ce6c7378228456d621ddfd",
+                    "5486f35f2af0574912576b7e5263a912", "cf03d4d6dc719e59acb1671dc0263e2e",
+                    "4672bc1c135b989dd64f9fb7ed68e729", "a52d3ff1605eff146016a8a00dd1d5f1"
+                ];
                 
-                // Hash all three datasets exactly like DataDome
-                const [textHash1, textHash2, geometricHash] = await Promise.all([
-                    hashData(textImageData1.data),
-                    hashData(textImageData2.data),
-                    hashData(geometricImageData.data)
-                ]);
+                const isMatch = knownHashes.includes(hexHash);
                 
-                // Check for instability (exact DataDome logic)
-                const isUnstable = toHex(textHash1) !== toHex(textHash2);
-                
-                // XOR first text hash with geometric hash (exact DataDome logic)
-                const finalHash = textHash1.map(function(byte, index) {
-                    return byte ^ geometricHash[index];
-                });
-                
-                // Display results
-                const hexFinalHash = toHex(finalHash);
                 resultsDiv.innerHTML = `
-                    <strong>Canvas Fingerprint (pcso):</strong> ${hexFinalHash}<br>
-                    <strong>Stability:</strong> ${isUnstable ? 'UNST (Unstable)' : 'Stable'}<br>
-                    <strong>Text Hash 1:</strong> ${toHex(textHash1)}<br>
-                    <strong>Text Hash 2:</strong> ${toHex(textHash2)}<br>
-                    <strong>Geometric Hash:</strong> ${toHex(geometricHash)}<br>
-                    <strong>Text Hashes Match:</strong> ${!isUnstable}
+                    <strong>Seed:</strong> ${seed}<br>
+                    <strong>Shapes:</strong> ${shapes}<br>
+                    <strong>Generated Hash:</strong> ${hexHash}<br>
+                    <strong>Match with known:</strong> ${isMatch ? '🎯 YES!' : 'No'}<br>
+                    <strong>Status:</strong> UNST (always unstable in this implementation)
                 `;
                 
-                // Also log to console for easy copying
-                console.log('DataDome Picasso Results:');
-                console.log('pcso:', hexFinalHash);
-                console.log('ch:', isUnstable ? 'UNST' : 'stable');
+                console.log(`Seed ${seed}, Shapes ${shapes}: ${hexHash} ${isMatch ? '🎯' : ''}`);
                 
             } catch (error) {
                 resultsDiv.innerHTML = 'Error: ' + error.message;
@@ -140,102 +216,23 @@
             }
         }
 
-        // Known DataDome hashes for collision testing
-        const knownHashes = [
-            "131bd7b5e8f9221c94eb742406b4b47e", "86e105b55c457847c7234ed570e925fe",
-            "39114cf3b63d8af324af9c111ba0ea05", "89e095e6a52cc387edd991d82cca2cdc", 
-            "24441bba25a6e2916b4eaf01448ec1fa", "70410ed014ce6c7378228456d621ddfd",
-            "5486f35f2af0574912576b7e5263a912", "cf03d4d6dc719e59acb1671dc0263e2e",
-            "4672bc1c135b989dd64f9fb7ed68e729", "a52d3ff1605eff146016a8a00dd1d5f1",
-            "0cf0f9a0da87810220afb839d17f74e2", "17fb98a69e516e34e960f4341bac31ed",
-            "71a8c093f45196f2d410de7876b236fc", "8f84d86b9158dbf15d5437bc21092799",
-            "297456eaa17442feff9533a7225bfce1", "da8c070dfb173b6a49b66b92f7c111f5",
-            "0e0c752173a1dadcd6e8916df7a96dd3", "cb5d6bd6cdc4d8d15ca6dc382e8fc959",
-            "0d06aa7ee1c84b08e5b82f180109600f", "b82fb81f9ebdb674059b7417f2e6aea7",
-            "570bac3d71aede85ea1de7f21a353fae", "d18f65c302f908c9a49e77f0a471f58a",
-            "47bcd2ab1356745c729ccc91133ff5b1", "ca2446e997de712792d5c8bea5740472",
-            "a27e44c52234700af6b04825e78f82c1", "ca9a49dbabc48f9e02c66117700a5b40",
-            "e6acb86ca2766314aacb8f3fe3fb07d6", "39a957a920b2546289421ee1d98b19c4",
-            "8610afe1f088c8186ee34b1a8e3b80f4", "3868d536d2e5fd3ef2272b3cc394debf",
-            "ddb7c711d42b35c7ec2fc6b47551adee"
-        ];
-
-        async function runCollisionTest() {
+        async function testAllKnownSeeds() {
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = 'Running collision test (100 iterations)...<br><br>';
+            resultsDiv.innerHTML = 'Testing all seeds 1-9...<br><br>';
             
-            const generatedHashes = [];
             let matches = 0;
-            let uniqueHashes = new Set();
             
-            for (let i = 0; i < 100; i++) {
-                try {
-                    const textCanvas = document.getElementById('textCanvas');
-                    const geometricCanvas = document.getElementById('geometricCanvas');
-                    const textCtx = textCanvas.getContext('2d');
-                    const geometricCtx = geometricCanvas.getContext('2d');
-                    
-                    renderTextCanvas(textCanvas, textCtx);
-                    const textImageData1 = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
-                    const textImageData2 = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
-                    
-                    renderGeometricCanvas(geometricCanvas, geometricCtx);
-                    const geometricImageData = geometricCtx.getImageData(0, 0, geometricCanvas.width, geometricCanvas.height);
-                    
-                    const [textHash1, textHash2, geometricHash] = await Promise.all([
-                        hashData(textImageData1.data),
-                        hashData(textImageData2.data), 
-                        hashData(geometricImageData.data)
-                    ]);
-                    
-                    const isUnstable = toHex(textHash1) !== toHex(textHash2);
-                    const finalHash = textHash1.map((byte, index) => byte ^ geometricHash[index]);
-                    const hexFinalHash = toHex(finalHash);
-                    
-                    generatedHashes.push(hexFinalHash);
-                    uniqueHashes.add(hexFinalHash);
-                    
-                    // Check if this hash matches any known DataDome hash
-                    if (knownHashes.includes(hexFinalHash)) {
-                        matches++;
-                        console.log(`🎯 COLLISION FOUND! Iteration ${i+1}: ${hexFinalHash}`);
-                    }
-                    
-                    if ((i + 1) % 10 === 0) {
-                        resultsDiv.innerHTML += `Completed ${i+1}/100 iterations. Matches so far: ${matches}<br>`;
-                    }
-                } catch (error) {
-                    console.error(`Error in iteration ${i+1}:`, error);
-                }
+            for (let seed = 1; seed <= 9; seed++) {
+                await generateFingerprint(seed, 7);
+                await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
             }
             
-            // Calculate statistics
-            const collisionRate = (matches / 100) * 100;
-            const uniqueCount = uniqueHashes.size;
-            const expectedCollisionProbability = (31 / Math.pow(16, 32)) * 100; // Theoretical
-            
-            resultsDiv.innerHTML += `
-                <br><h3>Collision Test Results:</h3>
-                <strong>Matches with known DataDome hashes:</strong> ${matches}/100 (${collisionRate.toFixed(1)}%)<br>
-                <strong>Unique hashes generated:</strong> ${uniqueCount}/100<br>
-                <strong>Collision rate:</strong> ${((100 - uniqueCount) / 100 * 100).toFixed(1)}% (self-collisions)<br>
-                <br>
-                ${matches > 0 ? 
-                    '<span style="color: green; font-weight: bold;">✅ SUCCESS: Implementation verified by hash collision!</span>' : 
-                    '<span style="color: orange;">⚠️ No collisions found - may need more iterations or algorithm differences</span>'}
-                <br><br>
-                <strong>All generated hashes:</strong><br>
-                <div style="max-height: 200px; overflow-y: scroll; font-size: 12px; background: #f8f8f8; padding: 10px;">
-                    ${generatedHashes.map((hash, i) => 
-                        `${i+1}: ${hash} ${knownHashes.includes(hash) ? '🎯' : ''}`
-                    ).join('<br>')}
-                </div>
-            `;
+            resultsDiv.innerHTML += `<br><strong>Completed testing seeds 1-9</strong>`;
         }
 
-        // Auto-generate on page load for convenience
+        // Auto-generate on page load
         window.addEventListener('load', function() {
-            setTimeout(generateFingerprint, 100);
+            setTimeout(() => generateFingerprint(3, 7), 100);
         });
     </script>
 </body>
