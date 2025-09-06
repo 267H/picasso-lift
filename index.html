@@ -1,1 +1,436 @@
-nonononononoonononon
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataDome EXACT Picasso Implementation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; }
+        .canvas-container { margin: 20px 0; }
+        canvas { border: 1px solid #ccc; margin: 10px; }
+        .seed-input { margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>DataDome EXACT Picasso Implementation</h1>
+    
+    <div class="seed-input">
+        <label>Test Seed: <input type="text" id="seedInput" value="3" placeholder="Enter seed string"></label>
+        <button onclick="generateSingleSeed()" style="padding: 5px 10px;">Test Single Seed</button>
+    </div>
+    
+    <div class="canvas-container">
+        <h3>Worker Canvases</h3>
+        <canvas id="textCanvas" width="380" height="55"></canvas>
+        <canvas id="geometricCanvas" width="131" height="115"></canvas>
+        
+        <h3>Picasso Canvas (300x300)</h3>
+        <canvas id="picassoCanvas" width="300" height="300"></canvas>
+    </div>
+    
+    <div class="result">
+        <h3>Results:</h3>
+        <div id="results">Click generate to start...</div>
+    </div>
+    
+    <button onclick="testAllSeeds()" style="padding: 10px 20px; font-size: 16px;">Test Seeds 1-9</button>
+
+    <script>
+        // EXACT DataDome hash functions
+        function hashData(data) {
+            return crypto.subtle.digest("SHA-256", data).then(function(hash) {
+                return Array.from(new Uint8Array(hash));
+            });
+        }
+
+        function toHex(bytes) {
+            return bytes.map(function(byte) {
+                return byte.toString(16).padStart(2, "0");
+            }).join("");
+        }
+
+        // EXACT Worker canvas functions
+        function renderTextCanvas(canvas, ctx) {
+            canvas.width = 380;
+            canvas.height = 55;
+            ctx.textBaseline = "alphabetic";
+            ctx.fillStyle = "#F0A";
+            ctx.fillRect(49, 1, 73, 25);
+            var text = "Quartz glyph job vexd cwm finks" + String.fromCharCode(55357, 56898);
+            ctx.fillStyle = "#3A1";
+            ctx.font = '13pt "Times New Roman"';
+            ctx.fillText(text, 5, 17);
+            ctx.fillStyle = "rgba(49, 40, 223, 0.33)";
+            ctx.font = "17pt Arial";
+            ctx.fillText(text, 7, 25);
+        }
+
+        function renderGeometricCanvas(canvas, ctx) {
+            canvas.width = 131;
+            canvas.height = 115;
+            ctx.globalCompositeOperation = "multiply";
+            var circles = [["#E3E", 55, 55], ["#3EE", 95, 55], ["#EE3", 70, 90]];
+            for (var i = 0; i < circles.length; i++) {
+                ctx.fillStyle = circles[i][0];
+                ctx.beginPath();
+                ctx.arc(circles[i][1], circles[i][2], 45, 0, 2 * Math.PI, true);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.fillStyle = "#EA3";
+            ctx.arc(65, 65, 65, 0, 2 * Math.PI, true);
+            ctx.arc(65, 65, 30, 0, 2 * Math.PI, true);
+            ctx.fill("evenodd");
+        }
+
+        // EXACT DataDome Picasso implementation
+        function createPicassoGenerator(seedString) {
+            // EXACT seed processing
+            var n = 0;
+            for (var i = 0; i < seedString.length; i++) {
+                n += seedString.charCodeAt(i);
+            }
+            n %= 10;
+            if (n === 0) n = 1;
+            
+            const shapes = 7;
+            const seed = n;
+            
+            // EXACT DataDome PRNG parameters
+            const offsetParameter = 2001000001;
+            const multiplier = 15000;
+            const fontSizeFactor = 1.5;
+            const maxShadowBlur = 50;
+            const area = { width: 300, height: 300 };
+            
+            // EXACT PRNG implementation
+            function PRNG(seed) {
+                this.currentNumber = seed % offsetParameter;
+                if (this.currentNumber <= 0) {
+                    this.currentNumber += offsetParameter;
+                }
+            }
+            
+            PRNG.prototype.getNext = function() {
+                this.currentNumber = Math.max(multiplier * this.currentNumber % offsetParameter, 2);
+                return this.currentNumber;
+            };
+            
+            function scaleRandom(rng, maxValue, isFloat) {
+                const normalized = (rng.getNext() - 1) / offsetParameter;
+                return isFloat ? normalized * maxValue : Math.floor(normalized * maxValue);
+            }
+            
+            // EXACT color palette
+            const colors = ["#FF6633", "#FFB399", "#FF33FF", "#FFFF99", "#00B3E6", "#E6B333", "#3366E6", "#999966", "#99FF99", "#B34D4D", "#80B300", "#809900", "#E6B3B3", "#6680B3", "#66991A", "#FF99E6", "#CCFF1A", "#FF1A66", "#E6331A", "#33FFCC", "#66994D", "#B366CC", "#4D8000", "#B33300", "#CC80CC", "#66664D", "#991AFF", "#E666FF", "#4DB3FF", "#1AB399", "#E666B3", "#33991A", "#CC9999", "#B3B31A", "#00E680", "#4D8066", "#809980", "#E6FF80", "#1AFF33", "#999933", "#FF3380", "#CCCC00", "#66E64D", "#4D80CC", "#9900B3", "#E64D66", "#4DB380", "#FF4D4D", "#99E6E6", "#6666FF"];
+            
+            // EXACT drawing functions
+            const drawingFunctions = [
+                function(rng, ctx) {
+                    ctx.beginPath();
+                    ctx.arc(scaleRandom(rng, area.width / 2), scaleRandom(rng, area.height / 2), scaleRandom(rng, Math.min(area.width / 4, area.height / 4)), scaleRandom(rng, 2 * Math.PI, true), scaleRandom(rng, 2 * Math.PI, true));
+                    ctx.stroke();
+                },
+                function(rng, ctx) {
+                    const length = Math.max(1, scaleRandom(rng, 5));
+                    let text = "";
+                    for (let i = 0; i < length; i++) {
+                        const charCode = 65 + rng.getNext() % (126 - 65);
+                        text += String.fromCharCode(charCode);
+                    }
+                    ctx.font = (area.height / fontSizeFactor) + "px aafakefontaa";
+                    ctx.fillText(text, scaleRandom(rng, area.width), scaleRandom(rng, area.height), scaleRandom(rng, area.width));
+                },
+                function(rng, ctx) {
+                    ctx.beginPath();
+                    ctx.moveTo(scaleRandom(rng, area.width), scaleRandom(rng, area.height));
+                    ctx.bezierCurveTo(scaleRandom(rng, area.width), scaleRandom(rng, area.height), scaleRandom(rng, area.width), scaleRandom(rng, area.height), scaleRandom(rng, area.width), scaleRandom(rng, area.height));
+                    ctx.stroke();
+                },
+                function(rng, ctx) {
+                    ctx.beginPath();
+                    ctx.moveTo(scaleRandom(rng, area.width), scaleRandom(rng, area.height));
+                    ctx.quadraticCurveTo(scaleRandom(rng, area.width), scaleRandom(rng, area.height), scaleRandom(rng, area.width), scaleRandom(rng, area.height));
+                    ctx.stroke();
+                }
+            ];
+            
+            function drawEmoji(rng, ctx) {
+                const num = Math.max(1, scaleRandom(rng, 5));
+                const text = "\ufeff▶️" + num;
+                ctx.font = (area.height / fontSizeFactor) + "px aafakefontaa";
+                ctx.fillText(text, scaleRandom(rng, area.width), scaleRandom(rng, area.height), scaleRandom(rng, area.width));
+            }
+            
+            const rng = new PRNG(seed);
+            const canvas = document.getElementById('picassoCanvas');
+            canvas.width = area.width;
+            canvas.height = area.height;
+            const ctx = canvas.getContext('2d');
+            
+            function drawFrame(isLastFrame, isSecondToLast) {
+                // EXACT gradient setup
+                const gradient = ctx.createRadialGradient(
+                    scaleRandom(rng, area.width), scaleRandom(rng, area.height), scaleRandom(rng, area.width),
+                    scaleRandom(rng, area.width), scaleRandom(rng, area.height), scaleRandom(rng, area.width)
+                );
+                gradient.addColorStop(0, colors[scaleRandom(rng, colors.length)]);
+                gradient.addColorStop(1, colors[scaleRandom(rng, colors.length)]);
+                ctx.fillStyle = gradient;
+                
+                // EXACT shadow setup
+                ctx.shadowBlur = scaleRandom(rng, maxShadowBlur);
+                ctx.shadowColor = colors[scaleRandom(rng, colors.length)];
+                
+                // EXACT drawing logic
+                let drawFunc;
+                if (isLastFrame) {
+                    drawFunc = drawingFunctions[1]; // Text function
+                } else if (isSecondToLast) {
+                    drawFunc = drawEmoji;
+                } else {
+                    drawFunc = drawingFunctions[scaleRandom(rng, drawingFunctions.length)];
+                }
+                
+                drawFunc(rng, ctx);
+                ctx.fill();
+                
+                // Return canvas data for hashing
+                return canvas.toDataURL();
+            }
+            
+            return { drawFrame, shapes, seed };
+        }
+
+        // EXACT DataDome hash function (MurmurHash3 128-bit from module 3)
+        function dataDomeHash(input, seed) {
+            seed = seed || 0;
+            
+            function add32(a, b) {
+                a = [a[0] >>> 16, 65535 & a[0], a[1] >>> 16, 65535 & a[1]];
+                b = [b[0] >>> 16, 65535 & b[0], b[1] >>> 16, 65535 & b[1]];
+                var t = [0, 0, 0, 0];
+                t[3] += a[3] + b[3]; t[2] += t[3] >>> 16; t[3] &= 65535;
+                t[2] += a[2] + b[2]; t[1] += t[2] >>> 16; t[2] &= 65535;
+                t[1] += a[1] + b[1]; t[0] += t[1] >>> 16; t[1] &= 65535;
+                t[0] += a[0] + b[0]; t[0] &= 65535;
+                return [t[0] << 16 | t[1], t[2] << 16 | t[3]];
+            }
+            
+            function multiply32(a, b) {
+                a = [a[0] >>> 16, 65535 & a[0], a[1] >>> 16, 65535 & a[1]];
+                b = [b[0] >>> 16, 65535 & b[0], b[1] >>> 16, 65535 & b[1]];
+                var t = [0, 0, 0, 0];
+                t[3] += a[3] * b[3]; t[2] += t[3] >>> 16; t[3] &= 65535;
+                t[2] += a[2] * b[3]; t[1] += t[2] >>> 16; t[2] &= 65535;
+                t[2] += a[3] * b[2]; t[1] += t[2] >>> 16; t[2] &= 65535;
+                t[1] += a[1] * b[3]; t[0] += t[1] >>> 16; t[1] &= 65535;
+                t[1] += a[2] * b[2]; t[0] += t[1] >>> 16; t[1] &= 65535;
+                t[1] += a[3] * b[1]; t[0] += t[1] >>> 16; t[1] &= 65535;
+                t[0] += a[0] * b[3] + a[1] * b[2] + a[2] * b[1] + a[3] * b[0];
+                t[0] &= 65535;
+                return [t[0] << 16 | t[1], t[2] << 16 | t[3]];
+            }
+            
+            function rotateLeft(a, n) {
+                return 32 === (n %= 64) ? [a[1], a[0]] : n < 32 ? [a[0] << n | a[1] >>> 32 - n, a[1] << n | a[0] >>> 32 - n] : (n -= 32, [a[1] << n | a[0] >>> 32 - n, a[0] << n | a[1] >>> 32 - n]);
+            }
+            
+            function shiftLeft(a, n) {
+                return 0 === (n %= 64) ? a : n < 32 ? [a[0] << n | a[1] >>> 32 - n, a[1] << n] : [a[1] << n - 32, 0];
+            }
+            
+            function xor32(a, b) {
+                return [a[0] ^ b[0], a[1] ^ b[1]];
+            }
+            
+            function fmix32(a) {
+                a = xor32(a, [0, a[0] >>> 1]);
+                a = xor32(a = multiply32(a, [4283543511, 3981806797]), [0, a[0] >>> 1]);
+                a = xor32(a = multiply32(a, [3301882366, 444984403]), [0, a[0] >>> 1]);
+                return a;
+            }
+            
+            var str = input || "";
+            var remainder = str.length % 16;
+            var bytes = str.length - remainder;
+            var h1 = [0, seed];
+            var h2 = [0, seed];
+            var k1 = [0, 0];
+            var k2 = [0, 0];
+            var c1 = [2277735313, 289559509];
+            var c2 = [1291169091, 658871167];
+            
+            for (var i = 0; i < bytes; i += 16) {
+                k1 = [255 & str.charCodeAt(i + 4) | (255 & str.charCodeAt(i + 5)) << 8 | (255 & str.charCodeAt(i + 6)) << 16 | (255 & str.charCodeAt(i + 7)) << 24, 255 & str.charCodeAt(i) | (255 & str.charCodeAt(i + 1)) << 8 | (255 & str.charCodeAt(i + 2)) << 16 | (255 & str.charCodeAt(i + 3)) << 24];
+                k2 = [255 & str.charCodeAt(i + 12) | (255 & str.charCodeAt(i + 13)) << 8 | (255 & str.charCodeAt(i + 14)) << 16 | (255 & str.charCodeAt(i + 15)) << 24, 255 & str.charCodeAt(i + 8) | (255 & str.charCodeAt(i + 9)) << 8 | (255 & str.charCodeAt(i + 10)) << 16 | (255 & str.charCodeAt(i + 11)) << 24];
+                
+                k1 = rotateLeft(k1 = multiply32(k1, c1), 31);
+                h1 = add32(h1 = rotateLeft(h1 = xor32(h1, k1 = multiply32(k1, c2)), 27), h2);
+                h1 = add32(multiply32(h1, [0, 5]), [0, 1390208809]);
+                
+                k2 = rotateLeft(k2 = multiply32(k2, c2), 33);
+                h2 = add32(h2 = rotateLeft(h2 = xor32(h2, k2 = multiply32(k2, c1)), 31), h1);
+                h2 = add32(multiply32(h2, [0, 5]), [0, 944331445]);
+            }
+            
+            k1 = [0, 0];
+            k2 = [0, 0];
+            
+            switch (remainder) {
+                case 15: k2 = xor32(k2, shiftLeft([0, str.charCodeAt(i + 14)], 48));
+                case 14: k2 = xor32(k2, shiftLeft([0, str.charCodeAt(i + 13)], 40));
+                case 13: k2 = xor32(k2, shiftLeft([0, str.charCodeAt(i + 12)], 32));
+                case 12: k2 = xor32(k2, shiftLeft([0, str.charCodeAt(i + 11)], 24));
+                case 11: k2 = xor32(k2, shiftLeft([0, str.charCodeAt(i + 10)], 16));
+                case 10: k2 = xor32(k2, shiftLeft([0, str.charCodeAt(i + 9)], 8));
+                case 9:  k2 = multiply32(k2 = xor32(k2, [0, str.charCodeAt(i + 8)]), c2);
+                        h2 = xor32(h2, k2 = multiply32(k2 = rotateLeft(k2, 33), c1));
+                case 8: k1 = xor32(k1, shiftLeft([0, str.charCodeAt(i + 7)], 56));
+                case 7: k1 = xor32(k1, shiftLeft([0, str.charCodeAt(i + 6)], 48));
+                case 6: k1 = xor32(k1, shiftLeft([0, str.charCodeAt(i + 5)], 40));
+                case 5: k1 = xor32(k1, shiftLeft([0, str.charCodeAt(i + 4)], 32));
+                case 4: k1 = xor32(k1, shiftLeft([0, str.charCodeAt(i + 3)], 24));
+                case 3: k1 = xor32(k1, shiftLeft([0, str.charCodeAt(i + 2)], 16));
+                case 2: k1 = xor32(k1, shiftLeft([0, str.charCodeAt(i + 1)], 8));
+                case 1: k1 = multiply32(k1 = xor32(k1, [0, str.charCodeAt(i)]), c1);
+                        h1 = xor32(h1, k1 = multiply32(k1 = rotateLeft(k1, 31), c2));
+            }
+            
+            h1 = add32(h1 = xor32(h1, [0, str.length]), h2 = xor32(h2, [0, str.length]));
+            h2 = add32(h2, h1);
+            h1 = add32(h1 = fmix32(h1), h2 = fmix32(h2));
+            h2 = add32(h2, h1);
+            
+            return ("00000000" + (h1[0] >>> 0).toString(16)).slice(-8) + ("00000000" + (h1[1] >>> 0).toString(16)).slice(-8) + ("00000000" + (h2[0] >>> 0).toString(16)).slice(-8) + ("00000000" + (h2[1] >>> 0).toString(16)).slice(-8);
+        }
+
+        async function generateWorkerPart() {
+            const textCanvas = document.getElementById('textCanvas');
+            const geometricCanvas = document.getElementById('geometricCanvas');
+            const textCtx = textCanvas.getContext('2d');
+            const geometricCtx = geometricCanvas.getContext('2d');
+            
+            renderTextCanvas(textCanvas, textCtx);
+            renderGeometricCanvas(geometricCanvas, geometricCtx);
+            
+            const r = [];
+            const l = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
+            r.push(hashData(l.data));
+            const f = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
+            r.push(hashData(f.data));
+            const g = geometricCtx.getImageData(0, 0, geometricCanvas.width, geometricCanvas.height);
+            r.push(hashData(g.data));
+            
+            const hashes = await Promise.all(r);
+            const isUnstable = toHex(hashes[0]) !== toHex(hashes[1]);
+            const workerResult = hashes[0].map((t, n) => t ^ hashes[2][n]);
+            
+            return {
+                ch: isUnstable ? "UNST" : toHex(workerResult),
+                isUnstable
+            };
+        }
+
+        async function generateSingleSeed() {
+            const seedInput = document.getElementById('seedInput').value || "3";
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                resultsDiv.innerHTML = `Testing seed "${seedInput}"...<br>`;
+                
+                // Generate Worker part (ch)
+                const worker = await generateWorkerPart();
+                
+                // Generate Picasso part (pcso)
+                const picasso = createPicassoGenerator(seedInput);
+                let N = "";
+                
+                // Run the animation loop (EXACT DataDome logic)
+                for (let frame = 0; frame < picasso.shapes; frame++) {
+                    const canvasData = picasso.drawFrame(frame >= picasso.shapes, frame + 1 >= picasso.shapes);
+                    N = dataDomeHash(N + canvasData, picasso.seed).substring(0, 32); // Truncate to 32 chars
+                }
+                
+                const knownHashes = [
+                    "131bd7b5e8f9221c94eb742406b4b47e", "86e105b55c457847c7234ed570e925fe",
+                    "39114cf3b63d8af324af9c111ba0ea05", "89e095e6a52cc387edd991d82cca2cdc",
+                    "24441bba25a6e2916b4eaf01448ec1fa", "70410ed014ce6c7378228456d621ddfd"
+                ];
+                
+                const isMatch = knownHashes.includes(N);
+                
+                resultsDiv.innerHTML = `
+                    <strong>Seed:</strong> "${seedInput}" → processed: ${picasso.seed}<br>
+                    <strong>Ch (Worker):</strong> ${worker.ch.length > 32 ? worker.ch.substring(0, 32) + '...' : worker.ch}<br>
+                    <strong>Pcso (Picasso):</strong> ${N} ${isMatch ? '🎯 MATCH!' : ''}<br>
+                    <strong>Shapes:</strong> ${picasso.shapes}<br>
+                    ${isMatch ? '<br><span style="color: green; font-weight: bold;">✅ COLLISION FOUND!</span>' : ''}
+                `;
+                
+                if (isMatch) {
+                    console.log('🎯 COLLISION:', { seed: seedInput, pcso: N, ch: worker.ch });
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = 'Error: ' + error.message;
+                console.error('Error:', error);
+            }
+        }
+
+        async function testAllSeeds() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = 'Testing seeds 1-9...<br><br>';
+            
+            const worker = await generateWorkerPart();
+            const results = [];
+            
+            for (let i = 1; i <= 9; i++) {
+                const seedStr = i.toString();
+                const picasso = createPicassoGenerator(seedStr);
+                let N = "";
+                
+                for (let frame = 0; frame < picasso.shapes; frame++) {
+                    const canvasData = picasso.drawFrame(frame >= picasso.shapes, frame + 1 >= picasso.shapes);
+                    N = dataDomeHash(N + canvasData, picasso.seed).substring(0, 32); // Truncate to 32 chars
+                }
+                
+                results.push({
+                    seed: seedStr,
+                    processedSeed: picasso.seed,
+                    pcso: N,
+                    shapes: picasso.shapes
+                });
+            }
+            
+            const knownHashes = [
+                "131bd7b5e8f9221c94eb742406b4b47e", "86e105b55c457847c7234ed570e925fe",
+                "39114cf3b63d8af324af9c111ba0ea05", "89e095e6a52cc387edd991d82cca2cdc",
+                "24441bba25a6e2916b4eaf01448ec1fa", "70410ed014ce6c7378228456d621ddfd"
+            ];
+            
+            const matches = results.filter(r => knownHashes.includes(r.pcso));
+            
+            resultsDiv.innerHTML = `
+                <strong>Worker Ch:</strong> ${worker.ch.length > 32 ? worker.ch.substring(0, 32) + '...' : worker.ch}<br><br>
+                <strong>Picasso Results:</strong><br>
+                ${results.map(r => 
+                    `Seed ${r.seed} (→${r.processedSeed}): ${r.pcso} ${knownHashes.includes(r.pcso) ? '🎯' : ''}`
+                ).join('<br>')}<br><br>
+                <strong>Matches found:</strong> ${matches.length}/9<br>
+                ${matches.length > 0 ? '<span style="color: green; font-weight: bold;">✅ COLLISIONS FOUND!</span>' : '❌ No matches - hash function may be incorrect'}
+            `;
+            
+            if (matches.length > 0) {
+                console.log('🎯 ALL MATCHES:', matches);
+            }
+        }
+
+        // Auto-generate on load
+        window.addEventListener('load', function() {
+            setTimeout(generateSingleSeed, 100);
+        });
+    </script>
+</body>
+</html>
