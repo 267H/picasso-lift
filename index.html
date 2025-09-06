@@ -203,6 +203,52 @@
             return { drawFrame, shapes, seed };
         }
 
+        // EXACT DataDome animation timing logic
+        function runAnimationLoop(picasso, seed) {
+            return new Promise((resolve) => {
+                let N = "";
+                let y = 0; // frame counter
+                let d; // previous timestamp
+                const testvals = []; // timestamps like DataDome's window.testvals
+                
+                function animationStep(timestamp) {
+                    try {
+                        // EXACT DataDome timing logic: !d || timestamp - d > 100
+                        if (!d || timestamp - d > 100) {
+                            testvals.push(timestamp);
+                            d = timestamp;
+                            
+                            // Draw frame (EXACT DataDome logic)
+                            const canvasData = picasso.drawFrame(y >= picasso.shapes, (y + 1) >= picasso.shapes);
+                            
+                            // Include timestamp in hash input for entropy
+                            const hashInput = N + canvasData + timestamp.toString();
+                            N = dataDomeHash(hashInput, seed).substring(0, 32);
+                            
+                            y++;
+                            if (y < picasso.shapes) {
+                                requestAnimationFrame(animationStep);
+                            } else {
+                                // Animation complete - include timing data in final hash
+                                const finalHashInput = N + testvals.join('');
+                                const finalHash = dataDomeHash(finalHashInput, seed).substring(0, 32);
+                                resolve(finalHash);
+                            }
+                        } else {
+                            // Skip frame, continue animation
+                            requestAnimationFrame(animationStep);
+                        }
+                    } catch (error) {
+                        console.error('Animation error:', error);
+                        resolve(N);
+                    }
+                }
+                
+                // Start animation
+                requestAnimationFrame(animationStep);
+            });
+        }
+
         // EXACT DataDome hash function (MurmurHash3 128-bit from module 3)
         function dataDomeHash(input, seed) {
             seed = seed || 0;
@@ -347,11 +393,8 @@
                 const picasso = createPicassoGenerator(seedInput);
                 let N = "";
                 
-                // Run the animation loop (EXACT DataDome logic)
-                for (let frame = 0; frame < picasso.shapes; frame++) {
-                    const canvasData = picasso.drawFrame(frame >= picasso.shapes, frame + 1 >= picasso.shapes);
-                    N = dataDomeHash(N + canvasData, picasso.seed).substring(0, 32); // Truncate to 32 chars
-                }
+                // Run the animation loop with EXACT DataDome timing logic
+                N = await runAnimationLoop(picasso, picasso.seed);
                 
                 const knownHashes = [
                     "131bd7b5e8f9221c94eb742406b4b47e", "86e105b55c457847c7234ed570e925fe",
@@ -391,10 +434,7 @@
                 const picasso = createPicassoGenerator(seedStr);
                 let N = "";
                 
-                for (let frame = 0; frame < picasso.shapes; frame++) {
-                    const canvasData = picasso.drawFrame(frame >= picasso.shapes, frame + 1 >= picasso.shapes);
-                    N = dataDomeHash(N + canvasData, picasso.seed).substring(0, 32); // Truncate to 32 chars
-                }
+                N = await runAnimationLoop(picasso, picasso.seed);
                 
                 results.push({
                     seed: seedStr,
